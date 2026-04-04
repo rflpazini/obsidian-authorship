@@ -94,39 +94,6 @@ Built with SOLID principles. Core domain logic is fully decoupled from Obsidian/
 - `src/ui/` — Settings tab, modals, status bar
 - `src/utils/` — Cryptographic hashing, grapheme cluster utilities
 
-## Submitting to the Obsidian Community Catalog
-
-When ready to publish to the official plugin directory:
-
-### Prerequisites
-
-- Repository has `README.md`, `LICENSE`, and `manifest.json` in the root
-- A GitHub Release exists with `main.js`, `manifest.json`, and `styles.css` as binary attachments
-- Release tag matches the `version` in `manifest.json` (no `v` prefix)
-
-### Steps
-
-1. **Create a release** — push a git tag (e.g. `1.0.0`) and the [release workflow](.github/workflows/release.yml) will create the GitHub Release automatically with all required assets
-2. **Submit for review** — fork [obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases), add this entry to the end of `community-plugins.json`:
-   ```json
-   {
-     "id": "authorship",
-     "name": "Authorship",
-     "author": "rflpazini",
-     "description": "Track and visualize text authorship in the editor. Distinguishes typed, pasted, AI-generated, and reference text with color-coded highlights.",
-     "repo": "rflpazini/obsidian-authorship"
-   }
-   ```
-3. **Open a PR** titled `Add plugin: Authorship`
-4. **Wait for validation** — a bot validates the submission. Fix any issues if the PR gets a `Validation failed` label
-5. **Address review comments** — the Obsidian team reviews and may request changes. Update the GitHub Release and comment on the PR
-6. **Published** — once approved, the plugin appears in the community directory
-
-### Post-publish
-
-- Announce in the Obsidian [forum](https://forum.obsidian.md/c/share-showcase/9) (Share & Showcase)
-- Announce in the Obsidian [Discord](https://discord.gg/veuWUTm) `#updates` channel (requires developer role)
-
 ## License
 
 MIT
