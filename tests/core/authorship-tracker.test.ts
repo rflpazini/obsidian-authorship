@@ -101,6 +101,26 @@ describe("annotationBlockToRanges", () => {
     expect(ranges[0].from).toBeLessThan(ranges[1].from);
   });
 
+  it("maps @Pasted back to SourceType.PASTED", () => {
+    const block: AnnotationBlock = {
+      hash: {
+        textRange: { from: 0, length: 10 },
+        algorithm: "SHA-256",
+        hash: "abc123def456789012345678",
+      },
+      authors: [
+        {
+          author: { name: "Pasted", prefix: SOURCE_PREFIX.HUMAN },
+          ranges: [{ from: 0, length: 10 }],
+        },
+      ],
+    };
+
+    const ranges = annotationBlockToRanges(block, "0123456789");
+    expect(ranges[0].sourceType).toBe(SourceType.PASTED);
+    expect(ranges[0].authorName).toBe("Pasted");
+  });
+
   it("returns empty array for block with no authors", () => {
     const block: AnnotationBlock = {
       hash: {

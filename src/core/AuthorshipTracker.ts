@@ -12,7 +12,10 @@ export function annotationBlockToRanges(
 
   for (const authorAnnotation of block.authors) {
     const { prefix, name } = authorAnnotation.author;
-    const sourceType = PREFIX_TO_DEFAULT_SOURCE[prefix] ?? SourceType.SELF;
+    let sourceType = PREFIX_TO_DEFAULT_SOURCE[prefix] ?? SourceType.SELF;
+    if (prefix === SOURCE_PREFIX.HUMAN && name === "Pasted") {
+      sourceType = SourceType.PASTED;
+    }
 
     for (const range of authorAnnotation.ranges) {
       const utf16From = graphemeToUtf16(segmentMap, range.from);

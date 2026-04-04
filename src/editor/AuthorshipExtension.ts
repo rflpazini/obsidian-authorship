@@ -27,6 +27,11 @@ export const markSelectionAs = StateEffect.define<{
   authorName: string;
 }>();
 export const toggleAuthorship = StateEffect.define<boolean>();
+export const updateAuthorshipSettings = StateEffect.define<{
+  enabled: boolean;
+  defaultPasteSource: SourceType;
+  selfAuthorName: string;
+}>();
 
 interface AuthorshipFieldState {
   readonly ranges: readonly AuthorshipRange[];
@@ -41,6 +46,21 @@ const INITIAL_STATE: AuthorshipFieldState = {
   defaultPasteSource: SourceType.PASTED,
   selfAuthorName: "Self",
 };
+
+interface ChangeSpan {
+  readonly fromA: number;
+  readonly toA: number;
+  readonly fromB: number;
+  readonly toB: number;
+}
+
+function collectChanges(tr: Transaction): ChangeSpan[] {
+  const spans: ChangeSpan[] = [];
+  tr.changes.iterChanges((fromA, toA, fromB, toB) => {
+    spans.push({ fromA, toA, fromB, toB });
+  });
+  return spans;
+}
 
 function processDocChanges(
   state: AuthorshipFieldState,
@@ -58,25 +78,30 @@ function processDocChanges(
         ? "AI"
         : "Pasted";
 
+  const spans = collectChanges(tr);
   let ranges = [...state.ranges];
 
-  tr.changes.iterChanges((fromA, toA, _fromB, toB) => {
-    const deleteLen = toA - fromA;
-    const insertLen = toB - (toA - deleteLen);
+  let offset = 0;
+  for (const span of spans) {
+    const adjustedFrom = span.fromA + offset;
+    const deleteLen = span.toA - span.fromA;
+    const insertLen = span.toB - span.fromB;
 
     if (deleteLen > 0) {
-      ranges = adjustRangesForDelete(ranges, fromA, deleteLen);
+      ranges = adjustRangesForDelete(ranges, adjustedFrom, deleteLen);
     }
     if (insertLen > 0) {
       ranges = adjustRangesForInsert(
         ranges,
-        fromA,
+        adjustedFrom,
         insertLen,
         sourceType,
         authorName,
       );
     }
-  });
+
+    offset += insertLen - deleteLen;
+  }
 
   ranges = removeEmptyRanges(ranges);
   ranges = mergeAdjacentRanges(ranges);
@@ -97,28 +122,38 @@ function processEffects(
     if (effect.is(toggleAuthorship)) {
       current = { ...current, enabled: effect.value };
     }
+    if (effect.is(updateAuthorshipSettings)) {
+      current = {
+        ...current,
+        enabled: effect.value.enabled,
+        defaultPasteSource: effect.value.defaultPasteSource,
+        selfAuthorName: effect.value.selfAuthorName,
+      };
+    }
     if (effect.is(markSelectionAs)) {
       const { from, to, sourceType, authorName } = effect.value;
-      const length = to - from;
+      const selFrom = Math.min(from, to);
+      const selTo = Math.max(from, to);
+      const length = selTo - selFrom;
 
       const newRanges = current.ranges.flatMap((r) => {
         const rangeEnd = r.from + r.length;
 
-        if (r.from >= to || rangeEnd <= from) return [r];
-        if (r.from >= from && rangeEnd <= to) return [];
+        if (r.from >= selTo || rangeEnd <= selFrom) return [r];
+        if (r.from >= selFrom && rangeEnd <= selTo) return [];
 
         const result: AuthorshipRange[] = [];
-        if (r.from < from) {
-          result.push({ ...r, length: from - r.from });
+        if (r.from < selFrom) {
+          result.push({ ...r, length: selFrom - r.from });
         }
-        if (rangeEnd > to) {
-          result.push({ ...r, from: to, length: rangeEnd - to });
+        if (rangeEnd > selTo) {
+          result.push({ ...r, from: selTo, length: rangeEnd - selTo });
         }
         return result;
       });
 
       const markedRange: AuthorshipRange = {
-        from,
+        from: selFrom,
         length,
         sourceType,
         authorName,

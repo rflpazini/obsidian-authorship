@@ -1,8 +1,13 @@
-import { Plugin, Notice, MarkdownView } from "obsidian";
+import { Plugin, Notice, MarkdownView, TFile, debounce } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { DEFAULT_SETTINGS } from "./types";
 import type { AuthorshipPluginSettings } from "./types";
-import { createAuthorshipExtension, setAuthorshipRanges, authorshipField } from "./editor/AuthorshipExtension";
+import {
+  createAuthorshipExtension,
+  setAuthorshipRanges,
+  updateAuthorshipSettings,
+  authorshipField,
+} from "./editor/AuthorshipExtension";
 import { computeAuthorStats } from "./editor/AuthorshipDecorator";
 import { loadAnnotations, saveAnnotations } from "./annotations/AnnotationStore";
 import { extractAnnotationBlock } from "./annotations/AnnotationParser";
@@ -14,6 +19,7 @@ export default class AuthorshipPlugin extends Plugin {
   settings: AuthorshipPluginSettings = DEFAULT_SETTINGS;
   private statusBar: StatusBarManager | null = null;
   private settingsTab: AuthorshipSettingTab | null = null;
+  private savingInProgress = new Set<string>();
 
   async onload(): Promise<void> {
     this.settings = {
@@ -32,6 +38,7 @@ export default class AuthorshipPlugin extends Plugin {
         this.settings = newSettings;
         this.settingsTab?.updateSettings(newSettings);
         await this.saveData(newSettings);
+        this.syncSettingsToEditors();
       },
     );
     this.addSettingTab(this.settingsTab);
@@ -47,14 +54,16 @@ export default class AuthorshipPlugin extends Plugin {
     );
 
     this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        this.debounceUpdateStatusBar();
+      this.app.workspace.on("editor-change", () => {
+        this.debouncedStatusBarUpdate();
       }),
     );
 
     this.registerEvent(
-      this.app.workspace.on("editor-change", () => {
-        this.debounceUpdateStatusBar();
+      this.app.vault.on("modify", (file) => {
+        if (file instanceof TFile && !this.savingInProgress.has(file.path)) {
+          this.debouncedSave(file);
+        }
       }),
     );
   }
@@ -65,10 +74,13 @@ export default class AuthorshipPlugin extends Plugin {
 
   private async handleFileOpen(filePath: string): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!file || !("extension" in file)) return;
+    if (!(file instanceof TFile)) return;
+
+    const view = this.getActiveEditorView();
+    if (!view) return;
 
     try {
-      const content = await this.app.vault.read(file as any);
+      const content = await this.app.vault.read(file);
       const result = await loadAnnotations(content);
 
       if (result.hasAnnotations && !result.hashValid) {
@@ -79,29 +91,54 @@ export default class AuthorshipPlugin extends Plugin {
         );
       }
 
-      if (result.ranges.length > 0) {
-        const view = this.getActiveEditorView();
-        if (view) {
-          view.dispatch({
-            effects: setAuthorshipRanges.of(result.ranges),
-          });
-        }
-      }
+      view.dispatch({
+        effects: setAuthorshipRanges.of(result.ranges),
+      });
     } catch {
-      // File read error -- silently continue without annotations
+      view.dispatch({
+        effects: setAuthorshipRanges.of([]),
+      });
     }
   }
 
-  private updateStatusBarTimeout: ReturnType<typeof setTimeout> | null = null;
+  private async handleSave(file: TFile): Promise<void> {
+    if (this.savingInProgress.has(file.path)) return;
 
-  private debounceUpdateStatusBar(): void {
-    if (this.updateStatusBarTimeout) {
-      clearTimeout(this.updateStatusBarTimeout);
+    const view = this.getActiveEditorView();
+    if (!view) return;
+
+    const state = view.state.field(authorshipField, false);
+    if (!state || state.ranges.length === 0) return;
+
+    const mdView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!mdView || mdView.file?.path !== file.path) return;
+
+    try {
+      const content = await this.app.vault.read(file);
+      const extracted = extractAnnotationBlock(content);
+      const body = extracted ? extracted.body : content;
+
+      const withAnnotations = await saveAnnotations(body, state.ranges);
+
+      this.savingInProgress.add(file.path);
+      await this.app.vault.modify(file, withAnnotations);
+      this.savingInProgress.delete(file.path);
+    } catch {
+      this.savingInProgress.delete(file.path);
     }
-    this.updateStatusBarTimeout = setTimeout(() => {
-      this.updateStatusBar();
-    }, 500);
   }
+
+  private debouncedSave = debounce(
+    (file: TFile) => this.handleSave(file),
+    2000,
+    true,
+  );
+
+  private debouncedStatusBarUpdate = debounce(
+    () => this.updateStatusBar(),
+    500,
+    true,
+  );
 
   private updateStatusBar(): void {
     if (!this.statusBar || !this.settings.showInStatusBar) return;
@@ -120,6 +157,24 @@ export default class AuthorshipPlugin extends Plugin {
 
     const stats = computeAuthorStats(state.ranges);
     this.statusBar.update(stats);
+  }
+
+  private syncSettingsToEditors(): void {
+    const leaves = this.app.workspace.getLeavesOfType("markdown");
+    for (const leaf of leaves) {
+      const mdView = leaf.view as MarkdownView;
+      // @ts-expect-error accessing internal CM6 editor
+      const cmEditor = mdView.editor?.cm as EditorView | undefined;
+      if (cmEditor) {
+        cmEditor.dispatch({
+          effects: updateAuthorshipSettings.of({
+            enabled: this.settings.enabled,
+            defaultPasteSource: this.settings.defaultPasteSource,
+            selfAuthorName: this.settings.selfAuthorName,
+          }),
+        });
+      }
+    }
   }
 
   private getActiveEditorView(): EditorView | null {
