@@ -20,9 +20,9 @@ Inspired by [iA Writer's Authorship](https://ia.net/writer/support/editor/author
 | Command | Description |
 |---------|-------------|
 | `Mark selection as AI` | Mark selected text as AI-generated |
-| `Mark selection as Self` | Mark selected text as self-authored |
-| `Mark selection as Reference` | Mark selected text as reference material |
-| `Toggle authorship highlighting` | Show/hide authorship decorations |
+| `Mark selection as self` | Mark selected text as self-authored |
+| `Mark selection as reference` | Mark selected text as reference material |
+| `Toggle highlighting` | Show/hide authorship decorations |
 
 ## How authorship data is stored
 

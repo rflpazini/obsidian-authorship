@@ -34,10 +34,10 @@ export default class AuthorshipPlugin extends Plugin {
       this.app,
       this,
       this.settings,
-      async (newSettings) => {
+      (newSettings) => {
         this.settings = newSettings;
         this.settingsTab?.updateSettings(newSettings);
-        await this.saveData(newSettings);
+        void this.saveData(newSettings);
         this.syncSettingsToEditors();
       },
     );
@@ -49,7 +49,7 @@ export default class AuthorshipPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
-        if (file) this.handleFileOpen(file.path);
+        if (file) void this.handleFileOpen(file.path);
       }),
     );
 

@@ -23,7 +23,7 @@ export function registerCommands(plugin: Plugin): void {
 
   plugin.addCommand({
     id: "mark-as-self",
-    name: "Mark selection as Self",
+    name: "Mark selection as self",
     editorCallback: (_editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
       markSelection(ctx, SourceType.SELF, "Self");
     },
@@ -31,15 +31,15 @@ export function registerCommands(plugin: Plugin): void {
 
   plugin.addCommand({
     id: "mark-as-reference",
-    name: "Mark selection as Reference",
+    name: "Mark selection as reference",
     editorCallback: (_editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
       markSelection(ctx, SourceType.REFERENCE, "Reference");
     },
   });
 
   plugin.addCommand({
-    id: "toggle-authorship",
-    name: "Toggle authorship highlighting",
+    id: "toggle-highlighting",
+    name: "Toggle highlighting",
     callback: () => {
       const leaves = plugin.app.workspace.getLeavesOfType("markdown");
       for (const leaf of leaves) {

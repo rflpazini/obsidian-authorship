@@ -29,7 +29,7 @@ export class AuthorshipSettingTab extends PluginSettingTab {
       .setName("Enable authorship tracking")
       .setDesc("Track typed vs pasted text in your documents")
       .addToggle((toggle) =>
-        toggle.setValue(this.settings.enabled).onChange(async (value) => {
+        toggle.setValue(this.settings.enabled).onChange((value) => {
           this.onSave({ ...this.settings, enabled: value });
         }),
       );
@@ -41,7 +41,7 @@ export class AuthorshipSettingTab extends PluginSettingTab {
         text
           .setPlaceholder("Self")
           .setValue(this.settings.selfAuthorName)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.onSave({ ...this.settings, selfAuthorName: value || "Self" });
           }),
       );
@@ -55,7 +55,7 @@ export class AuthorshipSettingTab extends PluginSettingTab {
           .addOption(SourceType.AI, "AI")
           .addOption(SourceType.REFERENCE, "Reference")
           .setValue(this.settings.defaultPasteSource)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.onSave({
               ...this.settings,
               defaultPasteSource: value as SourceType,
@@ -69,7 +69,7 @@ export class AuthorshipSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle
           .setValue(this.settings.showInStatusBar)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.onSave({ ...this.settings, showInStatusBar: value });
           }),
       );
